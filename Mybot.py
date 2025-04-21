@@ -56,4 +56,4 @@ async def add(ctx, left:int, right:int):
 
 
 
-client.run('OTI3Mjg5NzQ0NDM2NjU4MTg4.GJnr9C.hUP7WK8PlTvs86zBJLhUJeAO06C9_IeX6SqjHs')
+client.run('')
