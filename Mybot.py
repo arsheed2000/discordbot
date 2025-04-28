@@ -1,14 +1,19 @@
+import os
+from dotenv import load_dotenv, dotenv_values
 import discord
 from discord.ext import commands
+from music import Music
 
-
-
+load_dotenv()
 
 #client = discord.Client(intents=intents)
 client = commands.Bot(command_prefix = '!', intents = discord.Intents.all())
 
+
+
 @client.event
 async def on_ready():
+    await client.add_cog(Music(client))
     print(f'logged in as{client.user}')
 
 @client.event
@@ -50,10 +55,9 @@ async def leave(ctx):
 async def add(ctx, left:int, right:int):
     await ctx.send(left + right)
 
+@client.command()
+async def embed(ctx):
+    embedded = discord.Embed(title="User info",)
+    await ctx.send(embed=embedded)
 
-
-
-
-
-
-client.run('')
+client.run(os.getenv("TOKEN"))
