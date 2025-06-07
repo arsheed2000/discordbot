@@ -8,8 +8,8 @@ import asyncio
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.is_playing = False
         self.queue = []
+        self.is_playing = False
         self.ydl_opts = {
             'format': 'bestaudio/best',
             'quiet': True,
@@ -25,18 +25,6 @@ class Music(commands.Cog):
             'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -nostdin',
             'options': '-vn -b:a 128k -threads 1'
         }
-
-    @commands.Cog.listener()
-    async def on_voice_state_update(self, member, before, after):
-        """Clean up resources when bot disconnects"""
-        if member.id == self.bot.user.id and before.channel and not after.channel:
-            self.queue = []
-            # Forcefully clean up lingering processes
-            if hasattr(self, '_player'):
-                try:
-                    self._player.stop()
-                except:
-                    pass
 
 
 
@@ -97,54 +85,60 @@ class Music(commands.Cog):
             await ctx.send(f"❌ Error: {str(e)}")
 
     async def play_next(self, ctx):
-        # In play_next()
-        if self.is_playing:
+        if self.is_playing:  # Prevent overlapping plays
             return
+
         self.is_playing = True
         try:
+            # ALWAYS get fresh voice client from context
             voice_client = ctx.voice_client
-            # Handle unexpected disconnects
 
-            if voice_client is None or not voice_client.is_connected():
-                self.queue = []  # Clear queue
+            # Handle disconnects
+            if not voice_client or not voice_client.is_connected():
+                self.queue = []
+                self.is_playing = False
                 return
 
             if self.queue:
                 info = self.queue.pop(0)
-                source = discord.FFmpegOpusAudio(info['url'], **self.ffmpeg_options)
+                source = discord.FFmpegOpusAudio(
+                    info['url'],
+                    **self.ffmpeg_options
+                )
 
                 def after_playing(e):
-                    if e:
-                        print(f"Player error: {e}")
-                        # Add delay before next track
+                    # CORRECTED: Schedule cleanup in bot's thread
+                    async def _play_next():
+                        self.is_playing = False  # Reset FIRST
+                        await self.play_next(ctx)  # Then trigger next
+
                     asyncio.run_coroutine_threadsafe(
-                        asyncio.sleep(0.5).__await__(),
+                        _play_next(),
                         self.bot.loop
                     )
-                    asyncio.run_coroutine_threadsafe(
-                        self.play_next(ctx),
-                        self.bot.loop
-                    )
-                    # In after_playing callback
-                    self.is_playing = False
 
                 voice_client.play(source, after=after_playing)
                 await ctx.send(f"Now playing: **{info['title']}**")
+
             else:
                 await ctx.send("Queue is empty!")
+                self.is_playing = False
+
         except Exception as e:
-            print(f"Error: {e}")
-            await ctx.send("Error playing track - skipping to next song.")
-            await self.play_next(ctx)  # Skip on failure
+            print(f"Play error: {e}")
+            self.is_playing = False
+            # Non-recursive error recovery
+            if ctx.voice_client:
+                ctx.voice_client.stop()
 
     @commands.command()
     async def skip(self, ctx):
-        """Skip current track with proper cleanup"""
-        if ctx.voice_client:
-            ctx.voice_client.stop()
-            # Add slight delay to allow cleanup
-            await asyncio.sleep(0.5)
-        await self.play_next(ctx)
+        """Skip current track"""
+        if ctx.voice_client and ctx.voice_client.is_playing():
+            ctx.voice_client.stop()  # Triggers after_playing automatically
+            await ctx.send("⏭ Skipped")
+        else:
+            await ctx.send("Nothing playing!")
 
     @commands.command()
     async def disconnect(self, ctx):
