@@ -1,15 +1,14 @@
 import os
-from dotenv import load_dotenv, dotenv_values
+from dotenv import load_dotenv
 import discord
-from discord import app_commands
 from discord.ext import commands
-from music import Music
-from WelcomeMessage import WelcomeMessage
-from Moderation import Moderation
+from cogs.music import Music
+from cogs.WelcomeMessage import WelcomeMessage
+from cogs.Moderation import Moderation
 
 load_dotenv()
 
-client = commands.Bot(command_prefix = '!', intents = discord.Intents.all())
+client = commands.Bot(command_prefix = '?', intents = discord.Intents.all())
 
 
 
@@ -40,6 +39,11 @@ async def on_message(message):
 @client.command()
 async def nice(ctx):
     await ctx.send("nice")
+
+
+@client.command()
+async def penis(ctx):
+    await ctx.send("HARD")
 
 @client.command()
 async def hello(ctx):
