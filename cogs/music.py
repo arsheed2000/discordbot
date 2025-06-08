@@ -9,6 +9,7 @@ class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.queue = []
+        self.current_song = None
         self.is_playing = False
         self.ydl_opts = {
             'format': 'bestaudio/best',
@@ -101,6 +102,7 @@ class Music(commands.Cog):
 
             if self.queue:
                 info = self.queue.pop(0)
+                self.current_song = info['title']
                 source = discord.FFmpegOpusAudio(
                     info['url'],
                     **self.ffmpeg_options
@@ -123,6 +125,7 @@ class Music(commands.Cog):
             else:
                 await ctx.send("Queue is empty!")
                 self.is_playing = False
+                self.current_song = None
 
         except Exception as e:
             print(f"Play error: {e}")
@@ -135,8 +138,8 @@ class Music(commands.Cog):
     async def skip(self, ctx):
         """Skip current track"""
         if ctx.voice_client and ctx.voice_client.is_playing():
-            ctx.voice_client.stop()  # Triggers after_playing automatically
             await ctx.send("⏭ Skipped")
+            ctx.voice_client.stop()  # Triggers after_playing automatically
         else:
             await ctx.send("Nothing playing!")
 
@@ -147,6 +150,7 @@ class Music(commands.Cog):
         if ctx.voice_client:
             # Stop player before disconnecting
             ctx.voice_client.stop()
+            self.current_song = None
             await ctx.voice_client.disconnect()
 
     @commands.command()
@@ -169,8 +173,8 @@ class Music(commands.Cog):
 
         """await ctx.send(f'Now playing: {info['title']}')"""
         queue_list = [f"{i + 1}. {item['title']}" for i, item in enumerate(self.queue)]
-        await ctx.send("**Queue:**\n" + "\n".join(queue_list))
-
+        print(self.current_song['title'])
+        await ctx.send(f"***Currently playing*** : {self.current_song}\n" + "**Queue:**\n" + "\n".join(queue_list))
     @commands.command()
     async def shuffle(self, ctx):
         """Shuffle the queue"""
