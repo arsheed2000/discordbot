@@ -1,4 +1,6 @@
+import logging
 import os
+import certifi
 from dotenv import load_dotenv
 import discord
 from discord.ext import commands
@@ -7,8 +9,9 @@ from cogs.WelcomeMessage import WelcomeMessage
 from cogs.Moderation import Moderation
 
 load_dotenv()
+os.environ['SSL_CERT_FILE'] = certifi.where()
 
-client = commands.Bot(command_prefix = '?', intents = discord.Intents.all())
+client = commands.Bot(command_prefix = '!', intents = discord.Intents.all())
 
 
 
@@ -30,6 +33,12 @@ async def on_message(message):
         await message.channel.send("hello")
 
     await client.process_commands(message)
+
+@client.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandInvokeError):
+        logging.error((f"Command failed: {str(error.original)}"))
+
 
 #@client.tree.command(name="hello", description="Says penis")
 #async def hello(interaction: discord.Interaction):
