@@ -10,6 +10,9 @@ import random
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.listen = self.listener()
+        self.loop = False
+        self.loop_queue = False
         self.queue = []
         self.current_song = None
         self.is_playing = False
@@ -123,9 +126,11 @@ class Music(commands.Cog):
                 await ctx.send("Queue is empty!")
                 self.is_playing = False
                 self.current_song = None
+                self.loop = False
                 return
 
-            self.current_song = info.get('title', 'Unknown track')
+            #self.current_song = info.get('title', 'Unknown track')
+            self.current_song = info
             source = discord.FFmpegOpusAudio(
                 info['url'],
                 **self.ffmpeg_options
@@ -134,7 +139,12 @@ class Music(commands.Cog):
             def after_playing(e):
                 # Schedule next track in bot's thread
                 async def _play_next():
-                    self.is_playing = False  # Reset FIRST
+                    self.is_playing = False # Reset FIRST
+                    # Looping current song function
+                    if self.loop and self.current_song:
+                        self.queue.insert(0, self.current_song)
+                    if self.loop_queue and self.current_song:
+                        self.queue.append(self.current_song)
                     await self.play_next(ctx)  # Then trigger next
 
                 asyncio.run_coroutine_threadsafe(
@@ -143,7 +153,7 @@ class Music(commands.Cog):
                 )
 
             voice_client.play(source, after=after_playing)
-            await ctx.send(f"Now playing: **{self.current_song}**")
+            await ctx.send(f"Now playing: **{self.current_song.get('title')}**")
 
         except Exception as e:
             print(f"Play error: {e}")
@@ -168,6 +178,7 @@ class Music(commands.Cog):
         if ctx.voice_client:
             ctx.voice_client.stop()
             self.current_song = None
+            self.loop = False
             await ctx.voice_client.disconnect()
 
     @commands.command()
@@ -178,7 +189,37 @@ class Music(commands.Cog):
 
     @commands.command()
     async def loop(self, ctx):
-        return
+        if not ctx.voice_client:
+            await ctx.send("Can't use loop while not connected to a voice channel")
+            return
+        else:
+            if self.loop and ctx.voice_client.is_playing():
+                self.loop = False
+                await ctx.send("❌  Loop mode deactivated")
+
+            elif not self.loop and ctx.voice_client.is_playing():
+                self.loop = True
+                await ctx.send("🔁 Loop mode activated")
+
+            else:
+                await ctx.send("No song is currently playing!")
+
+    @commands.command()
+    async def loopq(self, ctx):
+        if not ctx.voice_client:
+            await ctx.send("Can't use loop while not connected to a voice channel")
+            return
+        else:
+            if self.loop_queue and ctx.voice_client.is_playing():
+                self.loop_queue = False
+                await ctx.send("❌  Loop mode deactivated")
+
+            elif not self.loop_queue and ctx.voice_client.is_playing():
+                self.loop_queue = True
+                await ctx.send("🔁 Loop mode activated")
+
+            else:
+                await ctx.send("No song is currently playing!")
 
     @commands.command()
     async def resume(self, ctx):
@@ -191,12 +232,15 @@ class Music(commands.Cog):
         """Show current queue"""
         if not self.queue and not (ctx.voice_client and ctx.voice_client.is_playing()):
             await ctx.send("Queue is empty!")
+            self.loop = False
             return
 
         queue_list = [f"{i + 1}. {item.get('title', 'Unknown track')}"
                       for i, item in enumerate(self.queue)]
 
-        current = self.current_song or "Nothing"
+        current = self.current_song.get('title') or "Nothing"
+        if self.loop and self.current_song:
+            queue_list.append(f"***Currently looping: *** {current}")
         await ctx.send(
             f"**Now Playing:** {current}\n"
             f"**Queue:**\n" + "\n".join(queue_list[:10])  # Limit to first 10

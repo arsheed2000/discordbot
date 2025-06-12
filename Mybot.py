@@ -22,7 +22,7 @@ async def on_ready():
     await client.add_cog(Music(client))
     await client.add_cog(WelcomeMessage(client))
     await client.add_cog(Moderation(client))
-    print(f'logged in as{client.user}')
+    print(f'logged in as {client.user}')
 
 @client.event
 async def on_message(message):
