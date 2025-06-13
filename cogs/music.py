@@ -13,6 +13,7 @@ class Music(commands.Cog):
         self.listen = self.listener()
         self.loop = False
         self.loop_queue = False
+        self.duration = None
         self.queue = []
         self.current_song = None
         self.is_playing = False
@@ -93,6 +94,25 @@ class Music(commands.Cog):
                         info = info['entries'][0]
 
                     self.queue.append(info)
+
+                    def format_seconds(total_seconds):
+                        minutes = total_seconds // 60
+                        seconds = total_seconds % 60
+                        duration = f"{minutes}:{seconds:02d}"
+                        return duration
+
+                    #Embeded messages to show added song
+                    embed = discord.Embed(title=info.get('title', 'Unknown track'), url=query, description="Added to Queue" )
+                    embed.set_thumbnail(url=info.get('thumbnail'))
+                    embed.set_author(name=ctx.author.display_name, url=None, icon_url=ctx.author.avatar)
+                    #embed.insert_field_at(0, name="Added to Queue")
+                    embed.add_field(name="Channel", value=info.get('channel'), inline=True)
+                    embed.add_field(name="Duration", value=format_seconds(info.get('duration')), inline=True)
+                    embed.add_field(name="Position in queue", value=self.queue.index(info), inline=False)
+                    await ctx.send(embed=embed)
+
+
+
                     await ctx.send(f"🎵 Added **{info.get('title', 'Unknown track')}** to queue")
 
             # Start playback if idle
@@ -212,11 +232,11 @@ class Music(commands.Cog):
         else:
             if self.loop_queue and ctx.voice_client.is_playing():
                 self.loop_queue = False
-                await ctx.send("❌  Loop mode deactivated")
+                await ctx.send("❌  Queue Loop mode deactivated")
 
             elif not self.loop_queue and ctx.voice_client.is_playing():
                 self.loop_queue = True
-                await ctx.send("🔁 Loop mode activated")
+                await ctx.send("🔁 Queue Loop mode activated")
 
             else:
                 await ctx.send("No song is currently playing!")
