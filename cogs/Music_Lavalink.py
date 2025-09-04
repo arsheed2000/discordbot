@@ -40,8 +40,9 @@ class LavalinkVoiceClient(discord.VoiceProtocol):
             # We store it in `self.client` so that it may persist across cog reloads,
             # however this is not mandatory.
             self.client.lavalink = lavalink.Client(client.user.id)
-            self.client.lavalink.add_node(host='localhost', port=2333, password='alaa2000',
-                                          region='us', name='default-node')
+            #self.client.lavalink.add_node(host='localhost', port=2333, password='alaa2000',
+            #                             region='us', name='default-node')
+            self.client.lavalink.add_node(host='lava-v4.ajieblogs.eu.org', port=443, password="https://dsc.gg/ajidevserver")
 
         # Create a shortcut to the Lavalink client here.
         self.lavalink = self.client.lavalink
@@ -242,7 +243,7 @@ class Music_lavalink(commands.Cog):
 
         # These are commands that require the bot to join a voicechannel (i.e. initiating playback).
         # Commands such as volume/skip etc don't require the bot to be in a voicechannel so don't need listing here.
-        should_connect = ctx.command.name in ('play',)
+        should_connect = ctx.command.name in ('play', 'join')
 
         voice_client = ctx.voice_client
 
@@ -317,7 +318,7 @@ class Music_lavalink(commands.Cog):
     async def update_nowplaying(self, player, message):
         try:
             while player.is_playing:
-                await asyncio.sleep(1)  # Update every X seconds
+                await asyncio.sleep(5)  # Update every X seconds
 
                 track = player.current
                 position = player.position
@@ -403,6 +404,7 @@ class Music_lavalink(commands.Cog):
         else:
             track = results.tracks[0]
 
+
             metadata = {
                 "title": track.title,
                 "channel": track.author,
@@ -470,6 +472,14 @@ class Music_lavalink(commands.Cog):
         embed.set_footer(text=f"Channel: {metadata['channel']}")
         await ctx.send(embed=embed)
 
+    @commands.command()
+    @commands.check(create_player)
+    async def stream(self, ctx, *, query: str):
+        self.player = self.bot.lavalink.player_manager.get(ctx.guild.id)
+        query = query.strip('<>')
+        results = await self.player.node.get_tracks(query)
+        track = results.tracks[0]
+        await self.player.play(track)
 
     @commands.command(aliases=['lp'])
     @commands.check(create_player)
@@ -526,14 +536,43 @@ class Music_lavalink(commands.Cog):
     @commands.check(create_player)
     async def queue(self, ctx):
         player = self.bot.lavalink.player_manager.get(ctx.guild.id)
-        queue = player.queue  # this is a list of Track objects
+        queue  = player.queue  # list of lavalink.Tracks
+        print(type(player.queue))
 
+        # 1) Empty?
+        if not queue:
+            embed = discord.Embed(title="🔊 The queue is empty!", colour=discord.Colour.dark_red())
+            return await ctx.send(embed=embed)
+
+        # 2) Only one page? (no need for buttons)
+        if len(queue) <= PAGE_SIZE:
+            embed = discord.Embed(
+                title="Current Queue",
+                color=discord.Color.blurple()
+            )
+            for idx, track in enumerate(queue, start=1):
+                minutes, seconds = divmod(track.duration // 1000, 60)
+                embed.add_field(
+                    name=f"{idx}. {track.title}",
+                    value=f"{track.author} — `{minutes}:{seconds:02d}`",
+                    inline=False
+                )
+            return await ctx.send(embed=embed)
+
+        # 3) Paginated
         paginator = QueuePaginator(ctx, queue)
-        embed = paginator.make_embed()
-        message = await ctx.send(embed=embed, view=paginator)
-
-        # store the message so the view can edit it later
+        embed     = paginator.make_embed()
+        message   = await ctx.send(embed=embed, view=paginator)
         paginator.message = message
+
+    @commands.command()
+    @commands.check(create_player)
+    async def clear(self, ctx):
+        player = self.bot.lavalink.player_manager.get(ctx.guild.id)
+        queue = player.queue
+        queue.clear()
+        embed = discord.Embed(title="Queue cleared!", color=discord.Color.dark_red())
+        await ctx.send(embed=embed)
 
     @commands.command()
     @commands.check(create_player)
@@ -603,6 +642,34 @@ class Music_lavalink(commands.Cog):
         embed = discord.Embed(title=title, color=color)
         embed.set_footer(text="Shuffle is now " + ("ON" if gid in self._original_queues else "OFF"))
         await ctx.send(embed=embed)
+
+    @commands.command(name='join')
+    @commands.check(create_player)
+    async def join(self, ctx):
+        await ctx.send("⋆⁺₊⋆ ☾⋆⁺₊⋆ | Joined Voice Channel.")
+
+    @commands.command()
+    async def test(self, ctx):
+        case = int(input("Input what you want to test:\n 1- Is_connected \n 2- Is_playing\n 3- Is_Stream \n"))
+        print(f'Case is: {case}')
+
+        if case == 1:
+            print(self.player.is_connected)
+        elif case == 2:
+            print(self.player.is_playing)
+        elif case == 3:
+            print(self.player.current.is_stream)
+        else:
+            print(f'Invalid input')
+
+    """
+    @commands.Cog.listener()
+    async def on_disconnect(self, ctx):
+        player = self.bot.lavalink.player_manager.get(ctx.guild.id)
+        player.queue.clear()
+        await player.stop
+        await ctx.send("Player has disconnected")
+    """
 
 
 async def setup(bot):
