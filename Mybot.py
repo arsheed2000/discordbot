@@ -62,21 +62,11 @@ async def nice(interaction: discord.Interaction):
     await interaction.response.send_message("Nice!")
 
 
-@client.command()
-async def penis(ctx):
-    await ctx.send("HARD")
 
 @client.command()
 async def hello(ctx):
     await ctx.send("nice")
 
-@client.hybrid_command()
-async def cock(ctx):
-    await ctx.send("NICE")
-
-@client.command(aliases=["69"])
-async def vnice(ctx):
-    await ctx.send("VERY NICE")
 
 
 @client.command(aliases=["j"])
